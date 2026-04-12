@@ -65,18 +65,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\CSVIMUPoseSource.cs" />
-    <Compile Include="Assets\FakeIMUGunPoseSource.cs" />
     <Compile Include="Assets\MouseLook.cs" />
-    <Compile Include="Assets\SerialIMUReceiver.cs" />
     <Compile Include="Assets\QuaternionSmoother.cs" />
-    <Compile Include="Assets\GunPoseApplier.cs" />
-    <Compile Include="Assets\IMUGunPoseSource.cs" />
-    <Compile Include="Assets\GunPoseDriver.cs" />
-    <Compile Include="Assets\GunPose.cs" />
+    <Compile Include="Assets\GunShoot.cs" />
     <Compile Include="Assets\GunPoseReceiver.cs" />
     <Compile Include="Assets\IGunPoseSource.cs" />
     <Compile Include="Assets\BLEIMUPoseSource.cs" />
-    <Compile Include="Assets\KeyboardGunPoseSource.cs" />
+    <Compile Include="Assets\Bullet.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

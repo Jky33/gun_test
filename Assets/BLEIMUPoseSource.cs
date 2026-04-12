@@ -4,164 +4,231 @@ using System.Collections.Generic;
 
 public class BLEIMUPoseSource : MonoBehaviour, IGunPoseSource
 {
+    // ===== 模式 =====
+public enum InputMode
+{
+    BLE,
+    CSV,
+    Keyboard
+}
 
+    public InputMode mode = InputMode.BLE;
+
+    // ===== CSV =====
     [Header("CSV Test")]
-public TextAsset csvFile;
+    
+    public TextAsset csvFile;
+    private List<Quaternion> csvRotations = new List<Quaternion>();
+    private int csvIndex = 0;
 
-private List<Quaternion> csvRotations = new List<Quaternion>();
+    [Header("Keyboard Control")]
+    public float keyboardSpeed = 120f;
 
-private int csvIndex = 0;
+    private float yaw = 0f;
+    private float pitch = 0f;
+
+    // ===== IMU =====
     public Quaternion imuRotation = Quaternion.identity;
+    private bool hasData = false;
 
+    private float timer = 0f;
+    public float maxHz = 100f;
+
+    private float csvTimer = 0f;
+
+    private int csvTrigger = 0;
+
+    private List<int> csvTriggers = new List<int>();
+
+    private Quaternion currentCSVRotation = Quaternion.identity;
+
+    private Quaternion latestIMU;
+    private bool hasNewData = false;
+
+    // ===== 濾波 =====
     private QuaternionSmoother smoother = new QuaternionSmoother();
     public float smoothing = 0.2f;
 
-    // ===== 狀態 =====
-    private bool hasData = false;
-    private bool calibrated = false;
+    // ===== 靈敏度 =====
+    public float sensitivity = 2.0f;
 
-    private Quaternion initialOffset = Quaternion.identity;
-
+    // ===== 槍方向修正 =====
     public Vector3 gunForwardEuler = Vector3.zero;
 
-    public enum InputMode
-{
-    BLE,
-    CSV
-}
-
-public InputMode mode = InputMode.BLE;
-
-    // ===== BLE 輸入 =====
-    public void OnBLEData(string data)
+    // =========================
+    // 初始化
+    // =========================
+    void Start()
     {
-        ParseQuaternion(data);
+        Debug.Log("Mode: " + mode);
+
+        if (mode == InputMode.CSV)
+        {
+            ParseCSV();
+            hasData = true;
+        }
     }
 
-   void Start()
+    void Update()
 {
-    Debug.Log("Mode: " + mode);
-
     if (mode == InputMode.CSV)
     {
-        ParseCSV();
+        float interval = 1f / maxHz;
+        csvTimer += Time.deltaTime;
+
+        if (csvTimer >= interval)
+        {
+            csvIndex = (csvIndex + 1) % csvRotations.Count;
+            currentCSVRotation = csvRotations[csvIndex];
+            triggerValue = csvTriggers[csvIndex];
+
+            csvTimer = 0f;
+
+            Debug.Log("CSV index: " + csvIndex);
+        }
+    }
+}
+
+bool TryParseIMULine(string line,
+    out int btn,
+    out float gx, out float gy, out float gz)
+{
+    btn = 0;
+    gx = gy = gz = 0;
+
+    if (string.IsNullOrWhiteSpace(line))
+        return false;
+
+    if (line.Contains("ax")) // header
+        return false;
+
+    string[] p = line.Trim().Split(',');
+
+    if (p.Length < 7)
+        return false;
+
+    try
+    {
+        // BTN
+        string[] btnSplit = p[0].Split(':');
+        if (btnSplit.Length == 2)
+        {
+            btn = int.Parse(btnSplit[1]);
+        }
+
+        // gyro（你目前用這個）
+        gz = float.Parse(p[4], CultureInfo.InvariantCulture);
+        gy = float.Parse(p[5], CultureInfo.InvariantCulture);
+        gx = float.Parse(p[6], CultureInfo.InvariantCulture);
+
+        return true;
+    }
+    catch
+    {
+        Debug.LogWarning("Parse fail: " + line);
+        return false;
+    }
+}
+
+    // =========================
+    // BLE 輸入
+    // =========================
+public int triggerValue = 0;
+
+public void OnBLEData(string data)
+{
+    if (TryParseIMULine(data, out int btn, out float gx, out float gy, out float gz))
+    {
+        triggerValue = btn;
+
+        imuRotation = Quaternion.Euler(
+            gx * 100f,
+            gy * 100f,
+            -gz * 100f
+        );
+
         hasData = true;
     }
 }
 
+    // =========================
+    // CSV 解析
+    // =========================
     void ParseCSV()
 {
     if (csvFile == null) return;
 
     string[] lines = csvFile.text.Split('\n');
 
-    for (int i = 1; i < lines.Length; i++)
+    foreach (string line in lines)
     {
-        string line = lines[i];
-        if (string.IsNullOrWhiteSpace(line)) continue;
+        if (TryParseIMULine(line, out int btn, out float gx, out float gy, out float gz))
+        {
+            csvTrigger = btn;
+            Quaternion q = Quaternion.Euler(
+                gx * 100f,
+                gy * 100f,
+                -gz * 100f
+            );
 
-        string[] p = line.Split(',');
-
-        float gx = float.Parse(p[3]);
-        float gy = float.Parse(p[4]);
-        float gz = float.Parse(p[5]);
-
-        // 👉 簡單轉成旋轉（測試用）
-        Quaternion q = Quaternion.Euler(gx, gy, gz);
-
-        csvRotations.Add(q);
+            csvRotations.Add(q);
+            csvTriggers.Add(btn);
+        }
     }
 
     Debug.Log("CSV Loaded: " + csvRotations.Count);
 }
 
-    void ParseQuaternion(string text)
-    {
-        string[] p = text.Split(',');
-
-        if (p.Length < 4) return;
-
-        try
-        {
-            float w = float.Parse(p[0], CultureInfo.InvariantCulture);
-            float x = float.Parse(p[1], CultureInfo.InvariantCulture);
-            float y = float.Parse(p[2], CultureInfo.InvariantCulture);
-            float z = float.Parse(p[3], CultureInfo.InvariantCulture);
-
-            imuRotation = new Quaternion(x, y, z, w);
-            hasData = true;
-        }
-        catch { }
-    }
-
-    // ===== 主輸出 =====
+    // =========================
+    // 主輸出（最重要）
+    // =========================
     public Quaternion GetRotation()
-    
 {
-    Quaternion AmplifyRotation(Quaternion q, float gain)
-{
-    // 取得旋轉軸 + 角度
-    q.ToAngleAxis(out float angle, out Vector3 axis);
-
-    // 放大角度
-    float amplifiedAngle = angle * gain;
-
-    return Quaternion.AngleAxis(amplifiedAngle, axis);
-}
-    if (mode == InputMode.CSV)
+    if (mode == InputMode.Keyboard)
     {
-        return GetCSVRotation();
+        float h = Input.GetAxis("Horizontal"); // A/D
+        float v = Input.GetAxis("Vertical");   // W/S
+
+        yaw += h * keyboardSpeed * Time.deltaTime;
+        pitch -= v * keyboardSpeed * Time.deltaTime;
+
+        Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
+        return rot * Quaternion.Euler(gunForwardEuler);
     }
 
     if (!hasData)
         return Quaternion.identity;
 
-    Quaternion q = smoother.Update(imuRotation, smoothing);
+    Quaternion raw;
 
-Quaternion converted = ConvertIMUToUnity(q);
-
-// 👉 放大旋轉（真正有效）
-Quaternion amplified = AmplifyRotation(converted, 3.0f);
-
-return initialOffset * amplified * Quaternion.Euler(gunForwardEuler);
-}
-    Quaternion GetCSVRotation()
-{
-    if (csvRotations.Count == 0)
-        return Quaternion.identity;
-
-    Quaternion q = csvRotations[csvIndex];
-
-    csvIndex = (csvIndex + 1) % csvRotations.Count;
-
-    return q;
-}
-
-    // ===== 座標轉換 =====
-    Quaternion ConvertIMUToUnity(Quaternion q)
+    if (mode == InputMode.CSV)
     {
-        // IMU: (X前, Y右, Z上)
-        // Unity: (X右, Y上, Z前)
-
-        return new Quaternion(
-            q.y,   // Unity X ← IMU Y
-            q.z,   // Unity Y ← IMU Z
-            q.x,   // Unity Z ← IMU X
-            q.w
-        );
+        raw = currentCSVRotation;
+    }
+    else
+    {
+        raw = smoother.Update(imuRotation, smoothing);
+        raw = ConvertIMUToUnity(raw);
     }
 
-    // ===== 自動校正（第一幀）=====
-    void Update()
+    raw.ToAngleAxis(out float angle, out Vector3 axis);
+    float amplifiedAngle = angle * sensitivity;
+
+    Quaternion amplified = Quaternion.AngleAxis(amplifiedAngle, axis);
+
+    return amplified * Quaternion.Euler(gunForwardEuler);
+}
+
+    // =========================
+    // 座標轉換
+    // =========================
+    Quaternion ConvertIMUToUnity(Quaternion q)
     {
-        if (!calibrated && hasData)
-        {
-            Quaternion converted = ConvertIMUToUnity(imuRotation);
-
-            initialOffset = Quaternion.Inverse(converted);
-            calibrated = true;
-
-            Debug.Log("IMU Calibrated");
-        }
+        return new Quaternion(
+            q.y,
+            q.z,
+            q.x,
+            q.w
+        );
     }
 }
