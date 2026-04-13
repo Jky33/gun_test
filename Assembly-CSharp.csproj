@@ -59,7 +59,6 @@
     <UnityVersion>2022.3.62f3</UnityVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Analyzer Include="C:\Users\user\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.2.1\Analyzers\Microsoft.Unity.Analyzers.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\Unity.SourceGenerators\Unity.SourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\2022.3.62f3\Editor\Data\Tools\Unity.SourceGenerators\Unity.Properties.SourceGenerator.dll" />
   </ItemGroup>
@@ -67,6 +66,7 @@
     <Compile Include="Assets\CSVIMUPoseSource.cs" />
     <Compile Include="Assets\MouseLook.cs" />
     <Compile Include="Assets\QuaternionSmoother.cs" />
+    <Compile Include="Assets\Target.cs" />
     <Compile Include="Assets\GunShoot.cs" />
     <Compile Include="Assets\GunPoseReceiver.cs" />
     <Compile Include="Assets\IGunPoseSource.cs" />

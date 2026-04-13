@@ -361,6 +361,7 @@
 "Assets/IGunPoseSource.cs"
 "Assets/MouseLook.cs"
 "Assets/QuaternionSmoother.cs"
+"Assets/Target.cs"
 -langversion:9.0
 /deterministic
 /optimize+

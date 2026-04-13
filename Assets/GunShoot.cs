@@ -68,6 +68,7 @@ public class GunShoot : MonoBehaviour
 
     void Shoot()
 {
+    Debug.DrawRay(muzzle.position, muzzle.forward * 5f, Color.red, 2f);
     if (bulletPrefab == null || muzzle == null)
         return;
 
@@ -92,15 +93,10 @@ public class GunShoot : MonoBehaviour
 
         // 直接給速度（不要等下一幀）
         rb.velocity = muzzle.forward * 30f;
-
-        Debug.Log("Shoot velocity: " + rb.velocity);
     }
     else
     {
         Debug.LogError("Bullet has no Rigidbody!");
     }
-    Debug.Log("Is Kinematic: " + rb.isKinematic);
-Debug.Log("Constraints: " + rb.constraints);
-    rb.AddForce(muzzle.forward * 1000f);
 }
 }
